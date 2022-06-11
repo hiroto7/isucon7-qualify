@@ -22,9 +22,9 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo-contrib/session"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 const (
@@ -254,7 +254,7 @@ func getInitializeRedis(c echo.Context) error {
 			return err
 		}
 	}
-	log.Printf("Saved images into Redis", len(imgs))
+	log.Printf("Saved images into Redis %d", len(imgs))
 
 	return c.String(204, "")
 }
