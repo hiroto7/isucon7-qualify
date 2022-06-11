@@ -33,7 +33,7 @@ cd /home/isucon/isubata/bench
 # alp で解析
 echo
 echo ":: ACCESS LOG       ====>"
-sudo cat /var/log/nginx/access.log | alp ltsv -m "/api/schedules/[0-9a-zA-Z]+" --sort avg -r
+sudo cat /var/log/nginx/access.log | alp ltsv -m "^/icons/[0-9a-z.]+$,^/history/\d+$,^/channel/\d+$,^/profile/[a-z_]+$" --sort avg -r
 
 
 
