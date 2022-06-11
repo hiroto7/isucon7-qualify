@@ -15,7 +15,7 @@ sudo truncate -s 0 -c /var/log/nginx/access.log
 echo
 echo ":: RESTART SERVICES ====>"
 # nginx
-sudo cp -r /home/isucon/isubata/nginx/* /etc/nginx/
+sudo cp -r /home/isucon/isubata/etc/nginx/* /etc/nginx/
 sudo systemctl restart nginx
 
 sudo mysqladmin flush-logs
