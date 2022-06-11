@@ -2,6 +2,7 @@ GOPATH := ${PWD}
 export GOPATH
 
 build:
+	go get github.com/go-redis/redis
 	GOOS=linux GOARCH=amd64 go build -v isubata
 
 vet:
