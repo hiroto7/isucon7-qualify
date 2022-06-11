@@ -726,14 +726,14 @@ func main() {
 	m := http.NewServeMux()
 	// エンドポイントの追加
 	m.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-	m.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.cmdline))
+	m.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 	m.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	m.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	m.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 	// プロファイル取得用のhttpサーバーをたてる
-	s : = &http.Server{
-		Addr: "127.0.0.1:6060",
+	s := &http.Server{
+		Addr:    "127.0.0.1:6060",
 		Handler: m,
 	}
 	go func() {
