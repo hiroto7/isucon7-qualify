@@ -136,6 +136,7 @@ func addMessage(channelID, userID int64, content string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	redisClient.HIncrBy("message_count", fmt.Sprintf("%d", channelID), 1)
 	return res.LastInsertId()
 }
 
@@ -240,6 +241,18 @@ func getInitialize(c echo.Context) error {
 	}
 	redisClient.Del(keys...)
 
+	redisClient.Del("message_count")
+	counts := []struct {
+		Count     int `db:"cnt"`
+		ChannelID int `db:"channel_id"`
+	}{}
+	err = db.Select(&counts, "SELECT COUNT(*) as cnt, channel_id FROM message group by channel_id")
+	if err != nil {
+		return err
+	}
+	for _, c := range counts {
+		redisClient.HSet("message_count", fmt.Sprintf("%d", c.ChannelID), c.Count)
+	}
 	return c.String(204, "")
 }
 
@@ -436,16 +449,7 @@ func getMessage(c echo.Context) error {
 		return err
 	}
 
-	type MessageWithUser struct {
-		ID              int64     `db:"id"`
-		Content         string    `db:"content"`
-		CreatedAt       time.Time `db:"created_at"`
-		UserName        string    `db:"name"`
-		UserDisplayName string    `db:"display_name"`
-		UserAvaterIcon  string    `db:"avater_icon"`
-	}
-	messages := []MessageWithUser{}
-	err = db.Select(&messages, "select m.id, m.content, m.created_at, u.name, u.display_name, u.avatar_icon from message m inner join user u on u.id = m.user_id where m.id > ? and m.channel_id = ? order by m.id desc limit 100", lastID, chanID)
+	messages, err := queryMessages(chanID, lastID)
 	if err != nil {
 		return err
 	}
@@ -453,15 +457,10 @@ func getMessage(c echo.Context) error {
 	response := make([]map[string]interface{}, 0)
 	for i := len(messages) - 1; i >= 0; i-- {
 		m := messages[i]
-		r := make(map[string]interface{})
-		r["id"] = m.ID
-		r["user"] = User{
-			Name:        m.UserName,
-			DisplayName: m.UserDisplayName,
-			AvatarIcon:  m.UserAvaterIcon,
+		r, err := jsonifyMessage(m)
+		if err != nil {
+			return err
 		}
-		r["date"] = m.CreatedAt.Format("2006/01/02 15:04:05")
-		r["content"] = m.Content
 		response = append(response, r)
 	}
 
@@ -520,11 +519,15 @@ func fetchUnread(c echo.Context) error {
 				"SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id",
 				chID, lastID)
 		} else {
-			err = db.Get(&cnt,
-				"SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?",
-				chID)
+			res := redisClient.HGet("message_count", fmt.Sprintf("%d", chID))
+			cnt, err = res.Int64()
+			if err == redis.Nil {
+				cnt = 0
+				err = nil
+			}
 		}
 		if err != nil {
+			fmt.Print(err)
 			return err
 		}
 		r := map[string]interface{}{
