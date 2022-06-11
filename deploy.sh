@@ -5,6 +5,7 @@ set -e
 # checkout main
 git fetch origin
 git reset --hard origin/master
+git pull origin master
 
 # nginx のログを削除
 echo ":: CLEAR LOGS       ====>"
