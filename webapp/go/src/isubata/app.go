@@ -465,15 +465,11 @@ func queryChannels() ([]int64, error) {
 
 func queryHaveRead(userID, chID int64) (int64, error) {
 	type HaveRead struct {
-		UserID    int64     `db:"user_id"`
-		ChannelID int64     `db:"channel_id"`
 		MessageID int64     `db:"message_id"`
-		UpdatedAt time.Time `db:"updated_at"`
-		CreatedAt time.Time `db:"created_at"`
 	}
 	h := HaveRead{}
 
-	err := db.Get(&h, "SELECT * FROM haveread WHERE user_id = ? AND channel_id = ?",
+	err := db.Get(&h, "SELECT message_id FROM haveread WHERE user_id = ? AND channel_id = ?",
 		userID, chID)
 
 	if err == sql.ErrNoRows {
@@ -732,6 +728,14 @@ func postProfile(c echo.Context) error {
 
 func getIcon(c echo.Context) error {
 	name := c.Param("file_name")
+
+	c.Response().Header().Set("Cache-Control", "public, max-age=31536000")
+	c.Response().Header().Set("ETag", name[0:len(name)-4])
+	c.Response().Header().Set("Last-Modified", "Fri, 29 Apr 2022 09:37:34 GMT")
+	if c.Request().Header.Get("If-Modified-Since") != "" || c.Request().Header.Get("If-None-Match") != "" {
+		return c.NoContent(304)
+	}
+
 	data, err := redisClient.Get(fmt.Sprintf("icons/%s", name)).Bytes()
 	if err == redis.Nil {
 		return echo.ErrNotFound
@@ -751,7 +755,6 @@ func getIcon(c echo.Context) error {
 	default:
 		return echo.ErrNotFound
 	}
-	c.Response().Header().Set("ETag", name[0:len(name)-4])
 	return c.Blob(http.StatusOK, mime, data)
 }
 
