@@ -27,6 +27,7 @@ sleep 5
 # ベンチマークの実行
 echo
 echo ":: BENCHMARK        ====>"
+cd /home/isucon/isubata/bench
 /home/isucon/isubata/bench/bin/bench -remotes=127.0.0.1
 
 # alp で解析

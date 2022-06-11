@@ -2,7 +2,7 @@ GOPATH := ${PWD}
 export GOPATH
 
 build:
-	go build -v isubata
+	GOOS=linux GOARCH=amd64 go build -v isubata
 
 vet:
 	go vet ./src/isubata/...
