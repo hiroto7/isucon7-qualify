@@ -233,6 +233,13 @@ func getInitialize(c echo.Context) error {
 	db.MustExec("DELETE FROM channel WHERE id > 10")
 	db.MustExec("DELETE FROM message WHERE id > 10000")
 	db.MustExec("DELETE FROM haveread")
+
+	keys, err := redisClient.Keys("haveread/*").Result()
+	if err != nil {
+		panic(err)
+	}
+	redisClient.Del(keys...)
+
 	return c.String(204, "")
 }
 
@@ -429,7 +436,16 @@ func getMessage(c echo.Context) error {
 		return err
 	}
 
-	messages, err := queryMessages(chanID, lastID)
+	type MessageWithUser struct {
+		ID              int64     `db:"id"`
+		Content         string    `db:"content"`
+		CreatedAt       time.Time `db:"created_at"`
+		UserName        string    `db:"name"`
+		UserDisplayName string    `db:"display_name"`
+		UserAvaterIcon  string    `db:"avater_icon"`
+	}
+	messages := []MessageWithUser{}
+	err = db.Select(&messages, "select m.id, m.content, m.created_at, u.name, u.display_name, u.avatar_icon from message m inner join user u on u.id = m.user_id where m.id > ? and m.channel_id = ? order by m.id desc limit 100", lastID, chanID)
 	if err != nil {
 		return err
 	}
@@ -437,18 +453,20 @@ func getMessage(c echo.Context) error {
 	response := make([]map[string]interface{}, 0)
 	for i := len(messages) - 1; i >= 0; i-- {
 		m := messages[i]
-		r, err := jsonifyMessage(m)
-		if err != nil {
-			return err
+		r := make(map[string]interface{})
+		r["id"] = m.ID
+		r["user"] = User{
+			Name:        m.UserName,
+			DisplayName: m.UserDisplayName,
+			AvatarIcon:  m.UserAvaterIcon,
 		}
+		r["date"] = m.CreatedAt.Format("2006/01/02 15:04:05")
+		r["content"] = m.Content
 		response = append(response, r)
 	}
 
 	if len(messages) > 0 {
-		_, err := db.Exec("INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at)"+
-			" VALUES (?, ?, ?, NOW(), NOW())"+
-			" ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()",
-			userID, chanID, messages[0].ID, messages[0].ID)
+		err := redisClient.Set(fmt.Sprintf("haveread/%d/%d", userID, chanID), messages[0].ID, 0).Err()
 		if err != nil {
 			return err
 		}
@@ -464,20 +482,15 @@ func queryChannels() ([]int64, error) {
 }
 
 func queryHaveRead(userID, chID int64) (int64, error) {
-	type HaveRead struct {
-		MessageID int64     `db:"message_id"`
-	}
-	h := HaveRead{}
-
-	err := db.Get(&h, "SELECT message_id FROM haveread WHERE user_id = ? AND channel_id = ?",
-		userID, chID)
-
-	if err == sql.ErrNoRows {
+	messageID, err := redisClient.Get(fmt.Sprintf("haveread/%d/%d", userID, chID)).Int64()
+	if err == redis.Nil {
 		return 0, nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return 0, err
 	}
-	return h.MessageID, nil
+
+	return messageID, nil
 }
 
 func fetchUnread(c echo.Context) error {
