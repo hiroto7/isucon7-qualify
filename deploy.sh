@@ -21,7 +21,7 @@ sudo systemctl restart nginx
 sudo mysqladmin flush-logs
 sudo systemctl restart mysql
 sudo systemctl restart isubata.golang
-sudo systemctl restart nginx
+sudo systemctl restart nginx # nginx -s reaload
 
 sleep 5
 
